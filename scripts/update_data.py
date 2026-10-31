@@ -155,39 +155,102 @@ def add_levels(alerts, levels):
     return n
 
 
+def kmva_intervals(events):
+    """Повний резерв часу тривог з каналу КМВА: від повідомлення про рівень до «Відбій» (рівень — останній оголошений)."""
+    out, cur = [], None
+    for t, lv in events:
+        if lv == "end":
+            if cur:
+                cur[1] = t
+                out.append(cur)
+                cur = None
+            continue
+        if cur is None:
+            cur = [t, None, lv]
+        else:
+            cur[2] = lv
+    if cur:
+        out.append(cur)
+    return out
+
+
+HEALTH = os.path.join(os.path.dirname(__file__), "..", "data", "health.json")
+
+
 def main():
-    off, kd, notes = [], [], []
+    off, kd, notes, warn = [], [], [], []
+    src_ok = {"kmda": True, "kd": True, "kmva": True}
     try:
         off = official()
     except Exception as e:
+        src_ok["kmda"] = False
         notes.append("КМДА data.gov.ua: " + str(e))
     try:
         kd = kyiv_digital()
     except Exception as e:
+        src_ok["kd"] = False
         notes.append("kyiv.digital: " + str(e))
     old = {}
     if os.path.exists(OUT):
         old = json.load(open(OUT, encoding="utf-8"))
-    if not off and not kd:
-        print("Обидва джерела недоступні, дані не змінено:", notes)
-        return 0
     if not off:  # набір КМДА тимчасово недоступний — беремо офіційну частину з попереднього файлу
-        off = [a for a in old.get("alerts", []) if a[3:4] == ["kmda"]]
-        off = [a[:3] for a in off]
+        off = [a[:3] for a in old.get("alerts", []) if a[3:4] == ["kmda"]]
     official_until = max((a[1] or a[0]) for a in off) if off else SINCE
+    now = now_kyiv().replace(tzinfo=None)
+
+    # Канал КМВА: рівні для свіжих тривог і повний резерв часу, якщо «Київ Цифровий» мовчить
+    events = []
+    try:
+        since = (dt.datetime.strptime(official_until[:10], "%Y-%m-%d") - dt.timedelta(days=1)).strftime("%Y-%m-%d")
+        events = kmva_levels(since)
+    except Exception as e:
+        src_ok["kmva"] = False
+        notes.append("КМВА t.me: " + str(e))
+
     merged = [a + ["kmda"] for a in off]
     fresh = [a for a in kd if a[0] > official_until]  # «Київ Цифровий» — лише після останнього запису КМДА
-    if fresh:
-        try:
-            lv = kmva_levels(min(a[0] for a in fresh)[:10])
-            print("КМВА: рівень додано", add_levels(fresh, lv), "з", len(fresh), "тривог")
-        except Exception as e:
-            notes.append("КМВА t.me: " + str(e))
+    if fresh and events:
+        print("КМВА: рівень додано", add_levels(fresh, events), "з", len(fresh), "тривог")
     for a in fresh:
         merged.append(a + ["kd"])
+
+    # Якщо «Київ Цифровий» відстає від КМВА більш ніж на 3 години — добираємо тривоги з КМВА
+    kd_last = max([a[1] or a[0] for a in kd] or [SINCE])
+    kmva_last = max([t for t, _ in events] or [SINCE])
+    cutoff = max(official_until, kd_last)
+    if events and (not src_ok["kd"] or kmva_last > (dt.datetime.strptime(kd_last[:16], "%Y-%m-%dT%H:%M") + dt.timedelta(hours=3)).strftime("%Y-%m-%dT%H:%M")):
+        extra = [a for a in kmva_intervals(events) if a[0] > cutoff]
+        if extra:
+            src_ok["kd"] = False
+            warn.append("Журнал «Київ Цифровий» не оновлюється (останній запис %s) — тривоги після нього взято з каналу КМВА." % kd_last.replace("T", " "))
+            for a in extra:
+                merged.append(a + ["kmva"])
     merged.sort(key=lambda a: a[0])
+
+    # Перевірка стану джерел
+    if not src_ok["kmda"]:
+        warn.append("Набір даних КМДА на data.gov.ua недоступний — використано збережену копію.")
+    days_off = (now - dt.datetime.strptime(official_until[:10], "%Y-%m-%d")).days
+    if days_off > 10:
+        warn.append("КМДА не оновлювала набір даних %d днів (останній запис %s)." % (days_off, official_until[:10]))
+    if not src_ok["kmva"]:
+        warn.append("Канал КМВА недоступний — рівні свіжих тривог не визначено.")
+    last_alert = max([a[1] or a[0] for a in merged] or [SINCE])
+    if (now - dt.datetime.strptime(last_alert[:16], "%Y-%m-%dT%H:%M")).days >= 3:
+        warn.append("За останні 3 доби жодної тривоги в даних (остання %s) — перевірте джерела." % last_alert.replace("T", " "))
+    if any(not a[2] for a in merged if a[3] != "kmda" and a[0] > (now - dt.timedelta(days=2)).strftime("%Y-%m-%d")) and src_ok["kmva"]:
+        notes.append("Є свіжі тривоги без рівня (КМВА не публікувала рівень).")
+
+    health = {"day": now.strftime("%Y-%m-%d"), "ok": not warn, "warnings": warn,
+              "sources_ok": src_ok, "official_until": official_until, "last_alert": last_alert}
+    old_health = json.load(open(HEALTH, encoding="utf-8")) if os.path.exists(HEALTH) else {}
+    if old_health != health:
+        with open(HEALTH, "w", encoding="utf-8") as f:
+            json.dump(health, f, ensure_ascii=False, indent=1)
+    print("Стан:", "усе гаразд" if not warn else warn)
+
     result = {
-        "updated": now_kyiv().strftime("%Y-%m-%dT%H:%M"),
+        "updated": now.strftime("%Y-%m-%dT%H:%M"),
         "official_until": official_until,
         "sources": {
             "kmda": "КМДА, набір даних «Статистика повітряних тривог на території Києва», data.gov.ua, CC BY 4.0",
@@ -202,7 +265,7 @@ def main():
     stale = True
     if old.get("updated"):
         prev = dt.datetime.strptime(old["updated"], "%Y-%m-%dT%H:%M")
-        stale = now_kyiv().replace(tzinfo=None) - prev >= dt.timedelta(hours=6)
+        stale = now - prev >= dt.timedelta(hours=6)
     if old.get("alerts") == merged and old.get("official_until") == official_until and not stale:
         print("Без змін")
         return 0

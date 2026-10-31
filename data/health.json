@@ -1,0 +1,12 @@
+{
+ "day": "2026-10-31",
+ "ok": true,
+ "warnings": [],
+ "sources_ok": {
+  "kmda": true,
+  "kd": true,
+  "kmva": true
+ },
+ "official_until": "2026-10-26T03:47",
+ "last_alert": "2026-10-31T10:34"
+}

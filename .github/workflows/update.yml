@@ -19,7 +19,7 @@ jobs:
           if [ -n "$(git status --porcelain data)" ]; then
             git config user.name "tabel-tryvog-bot"
             git config user.email "bot@users.noreply.github.com"
-            git add data/alerts.json
+            git add data/alerts.json data/health.json
             git commit -m "Оновлення даних про тривоги"
             git push
           fi
