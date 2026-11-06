@@ -1,5 +1,5 @@
 {
- "day": "2026-11-06",
+ "day": "2026-11-07",
  "ok": true,
  "warnings": [],
  "sources_ok": {
@@ -8,5 +8,5 @@
   "kmva": true
  },
  "official_until": "2026-11-02T07:46",
- "last_alert": "2026-11-06T23:33"
+ "last_alert": "2026-11-06T23:58"
 }
