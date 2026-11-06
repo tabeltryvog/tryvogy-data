@@ -1,0 +1,17 @@
+name: UkraineAlarm probe
+on: workflow_dispatch
+permissions:
+  contents: write
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: python scripts/ua_probe.py
+        env:
+          UKRAINEALARM_KEY: ${{ secrets.UKRAINEALARM_KEY }}
+      - run: |
+          git config user.name "tabel-bot"; git config user.email "bot@tutzruchno.com.ua"
+          git add data/ua_probe.json && git commit -m "UkraineAlarm: перевірка API" && git push || echo "без змін"
