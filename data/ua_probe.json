@@ -1,0 +1,110 @@
+{
+ "checked": "2026-11-08T15:33Z",
+ "calls": {
+  "regions": 200,
+  "alerts": 429,
+  "history_Київ": 429,
+  "history_Суми": 429,
+  "history_Одеса": 429,
+  "history_Вінниця": 429,
+  "history_Чернігів": 429,
+  "history_Львів": 429,
+  "history_Дніпро": 429,
+  "history_Житомир": 429,
+  "history_Запоріжжя": 429,
+  "history_Харків": 429
+ },
+ "cities": {
+  "Київ": [
+   {
+    "id": "31",
+    "name": "м. Київ",
+    "type": "State",
+    "parent": ""
+   }
+  ],
+  "Суми": [
+   {
+    "id": "1187",
+    "name": "м. Суми та Сумська територіальна громада",
+    "type": "Community",
+    "parent": "Сумський район"
+   }
+  ],
+  "Одеса": [
+   {
+    "id": "964",
+    "name": "м. Одеса та Одеська територіальна громада",
+    "type": "Community",
+    "parent": "Одеський район"
+   }
+  ],
+  "Вінниця": [
+   {
+    "id": "155",
+    "name": "м. Вінниця та Вінницька територіальна громада",
+    "type": "Community",
+    "parent": "Вінницький район"
+   }
+  ],
+  "Чернігів": [
+   {
+    "id": "1591",
+    "name": "м. Чернігів та Чернігівська територіальна громада",
+    "type": "Community",
+    "parent": "Чернігівський район"
+   }
+  ],
+  "Львів": [
+   {
+    "id": "845",
+    "name": "м. Львів та Львівська територіальна громада",
+    "type": "Community",
+    "parent": "Львівський район"
+   }
+  ],
+  "Дніпро": [
+   {
+    "id": "332",
+    "name": "м. Дніпро та Дніпровська територіальна громада",
+    "type": "Community",
+    "parent": "Дніпровський район"
+   }
+  ],
+  "Житомир": [
+   {
+    "id": "442",
+    "name": "м. Житомир та Житомирська територіальна громада",
+    "type": "Community",
+    "parent": "Житомирський район"
+   }
+  ],
+  "Запоріжжя": [
+   {
+    "id": "564",
+    "name": "м. Запоріжжя та Запорізька територіальна громада",
+    "type": "State",
+    "parent": ""
+   }
+  ],
+  "Харків": [
+   {
+    "id": "1293",
+    "name": "м. Харків та Харківська територіальна громада",
+    "type": "State",
+    "parent": ""
+   }
+  ]
+ },
+ "active_sample": "HTTP Error 429: Too Many Requests",
+ "history_Київ": "HTTP Error 429: Too Many Requests",
+ "history_Суми": "HTTP Error 429: Too Many Requests",
+ "history_Одеса": "HTTP Error 429: Too Many Requests",
+ "history_Вінниця": "HTTP Error 429: Too Many Requests",
+ "history_Чернігів": "HTTP Error 429: Too Many Requests",
+ "history_Львів": "HTTP Error 429: Too Many Requests",
+ "history_Дніпро": "HTTP Error 429: Too Many Requests",
+ "history_Житомир": "HTTP Error 429: Too Many Requests",
+ "history_Запоріжжя": "HTTP Error 429: Too Many Requests",
+ "history_Харків": "HTTP Error 429: Too Many Requests"
+}
