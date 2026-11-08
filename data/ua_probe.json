@@ -3,16 +3,9 @@
  "calls": {
   "regions": 200,
   "alerts": 429,
-  "history_Київ": 429,
-  "history_Суми": 429,
-  "history_Одеса": 429,
-  "history_Вінниця": 429,
-  "history_Чернігів": 429,
-  "history_Львів": 429,
-  "history_Дніпро": 429,
-  "history_Житомир": 429,
-  "history_Запоріжжя": 429,
-  "history_Харків": 429
+  "history_Київ": 200,
+  "history_Харків": 429,
+  "history_Дніпро": 429
  },
  "cities": {
   "Київ": [
@@ -97,14 +90,36 @@
   ]
  },
  "active_sample": "HTTP Error 429: Too Many Requests",
- "history_Київ": "HTTP Error 429: Too Many Requests",
- "history_Суми": "HTTP Error 429: Too Many Requests",
- "history_Одеса": "HTTP Error 429: Too Many Requests",
- "history_Вінниця": "HTTP Error 429: Too Many Requests",
- "history_Чернігів": "HTTP Error 429: Too Many Requests",
- "history_Львів": "HTTP Error 429: Too Many Requests",
- "history_Дніпро": "HTTP Error 429: Too Many Requests",
- "history_Житомир": "HTTP Error 429: Too Many Requests",
- "history_Запоріжжя": "HTTP Error 429: Too Many Requests",
- "history_Харків": "HTTP Error 429: Too Many Requests"
+ "history_Київ": {
+  "count": 20,
+  "fields": [
+   "alertType",
+   "duration",
+   "endDate",
+   "isContinue",
+   "regionId",
+   "regionName",
+   "startDate"
+  ],
+  "first": {
+   "regionId": "31",
+   "startDate": "2026-11-05T18:09:08.168087Z",
+   "endDate": "2026-11-05T18:20:12.521721Z",
+   "duration": "00:11:04.3536340",
+   "alertType": "AIR",
+   "regionName": "м. Київ",
+   "isContinue": false
+  },
+  "last": {
+   "regionId": "31",
+   "startDate": "2026-11-08T13:26:07.798504Z",
+   "endDate": "2026-11-08T14:01:02.332719Z",
+   "duration": "00:34:54.5342150",
+   "alertType": "AIR",
+   "regionName": "м. Київ",
+   "isContinue": false
+  }
+ },
+ "history_Харків": "HTTP Error 429: Too Many Requests",
+ "history_Дніпро": "HTTP Error 429: Too Many Requests"
 }
