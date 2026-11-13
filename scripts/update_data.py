@@ -218,7 +218,8 @@ def main():
     kd_last = max([a[1] or a[0] for a in kd] or [SINCE])
     kmva_last = max([t for t, _ in events] or [SINCE])
     cutoff = max(official_until, kd_last)
-    if events and (not src_ok["kd"] or kmva_last > (dt.datetime.strptime(kd_last[:16], "%Y-%m-%dT%H:%M") + dt.timedelta(hours=3)).strftime("%Y-%m-%dT%H:%M")):
+    kd_dt = dt.datetime.fromisoformat(kd_last[:16]) if len(kd_last) >= 16 else dt.datetime.fromisoformat(kd_last[:10])  # SINCE — лише дата
+    if events and (not src_ok["kd"] or kmva_last > (kd_dt + dt.timedelta(hours=3)).strftime("%Y-%m-%dT%H:%M")):
         extra = [a for a in kmva_intervals(events) if a[0] > cutoff]
         if extra:
             src_ok["kd"] = False
