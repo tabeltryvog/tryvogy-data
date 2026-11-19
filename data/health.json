@@ -1,12 +1,14 @@
 {
  "day": "2026-11-19",
- "ok": true,
- "warnings": [],
+ "ok": false,
+ "warnings": [
+  "Набір даних КМДА на data.gov.ua недоступний — використано збережену копію."
+ ],
  "sources_ok": {
-  "kmda": true,
+  "kmda": false,
   "kd": true,
   "kmva": true
  },
  "official_until": "2026-11-16T07:33",
- "last_alert": "2026-11-19T07:40"
+ "last_alert": "2026-11-19T08:16"
 }
