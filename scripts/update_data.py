@@ -3,8 +3,9 @@
 1. Відкритий набір КМДА «Статистика повітряних тривог на території Києва»: час початку й відбою + рівень
    загрози. Оновлюється щопонеділка. Беремо з двох порталів — data.gov.ua і Портал даних Києва
    (data.kyivcity.gov.ua), — звідки свіжіший: коли data.gov.ua не працює, дані йдуть з міського порталу.
-2. Журнал тривог міського сервісу «Київ Цифровий» (kyiv.digital): час початку й відбою, без рівня.
-   Ним доповнюємо дні після останнього оновлення набору КМДА.
+2. Відкритий API історії тривог «Київ Цифрового» (airAlertHistory на Порталі даних Києва): час початку й
+   відбою та причина (а з нею й рівень). Ним доповнюємо дні після останнього оновлення набору КМДА.
+   Якщо API не відповідає — запасний варіант, сторінка журналу kyiv.digital (час без рівня).
 3. Офіційний Telegram-канал КМВА (t.me/VA_Kyiv): повідомлення «Червоний/Жовтий рівень небезпеки».
    З нього беремо рівень для тривог з журналу «Київ Цифровий» — щоб рівні були щодня, а не лише після
    понеділкового оновлення КМДА. Правило — як у наборі КМДА: якщо рівень під час тривоги змінювався,
@@ -25,6 +26,15 @@ SRC_TEXT = {
     "kc": "КМДА (Департамент муніципальної безпеки), набір даних «Статистика повітряних тривог у місті Києві», Портал даних Києва (data.kyivcity.gov.ua)",
 }
 KD_URL = "https://kyiv.digital/storage/air-alert/stats.html"
+# Відкритий API історії тривог «Київ Цифрового» (ресурс airAlertHistory Порталу даних Києва): час + причина.
+HIST_URLS = ["https://kyiv.digital/open-api/air-alert/history",
+             "https://data.kyivcity.gov.ua/dataset/statystyka-povitrianykh-tryvoh-u-misti-kyievi/resource/"
+             "cbf3758e-031c-42b0-a477-e731cd79b261/data/download"]
+RED_CAUSES = {"missile", "massive-drone", "ballistic"}
+KD_TEXT = {
+    "api": "Відкритий API історії повітряних тривог міського сервісу «Київ Цифровий» (ресурс airAlertHistory, Портал даних Києва)",
+    "html": "Журнал повітряних тривог міського сервісу «Київ Цифровий» (kyiv.digital)",
+}
 KMVA_URL = "https://t.me/s/VA_Kyiv"
 SINCE = "2026-09-01"
 OUT = os.path.join(os.path.dirname(__file__), "..", "data", "alerts.json")
@@ -99,6 +109,51 @@ def official():
     print("Набір КМДА: беру з", "data.gov.ua" if key == "dg" else "Порталу даних Києва", "— останній запис", last(got[key]),
           "| інший портал:", {k: last(v) for k, v in got.items() if k != key} or errs)
     return got[key], key, errs
+
+
+def kd_history():
+    """API історії «Київ Цифрового». Повертає список (start, end, рівень).
+    Рівень — лише коли причина одна (drone → жовтий; missile, massive-drone, ballistic → червоний):
+    так він збігся з набором КМДА у 493 з 494 тривог за вересень–листопад 2026. Якщо причин кілька,
+    рівень лишається порожнім, і його бере канал КМВА (там — останній оголошений рівень)."""
+    import xml.etree.ElementTree as ET
+    last_err = None
+    for u in HIST_URLS:
+        try:
+            root = ET.fromstring(get(u))
+            break
+        except Exception as e:
+            last_err = e
+    else:
+        raise RuntimeError("API історії недоступний: %s" % last_err)
+    ev = []
+    for it in root.iter("item"):
+        t, st = it.findtext("created_at"), it.findtext("state")
+        if not t or st not in ("0", "1"):
+            continue              # вкладені <item> усередині <causes> — це причини, не події
+        c = it.find("causes")
+        causes = [x.text for x in c] if c is not None else []
+        ev.append((t.replace(" ", "T")[:16], int(st), causes))
+    ev.sort(key=lambda x: x[0])
+    out, cur = [], None
+    for t, st, causes in ev:
+        if st == 1:
+            if cur is not None:   # два старти поспіль — закриваємо попередню тривогу
+                cur[1] = t
+                out.append(cur)
+            lv = ""
+            if len(causes) == 1:
+                lv = "r" if causes[0] in RED_CAUSES else ("y" if causes[0] == "drone" else "")
+            cur = [t, None, lv]
+        elif cur is not None:
+            cur[1] = t
+            out.append(cur)
+            cur = None
+    if cur is not None:
+        out.append(cur)
+    if not out:
+        raise RuntimeError("API історії повернув порожній список")
+    return [a for a in out if a[0] >= SINCE]
 
 
 def kyiv_digital():
@@ -215,11 +270,17 @@ def main():
     except Exception as e:
         src_ok["kmda"] = False
         notes.append("КМДА: " + str(e))
+    kd_src = "api"
     try:
-        kd = kyiv_digital()
+        kd = kd_history()
     except Exception as e:
-        src_ok["kd"] = False
-        notes.append("kyiv.digital: " + str(e))
+        notes.append("API історії «Київ Цифровий»: " + str(e)[:150])
+        kd_src = "html"
+        try:
+            kd = kyiv_digital()
+        except Exception as e2:
+            src_ok["kd"] = False
+            notes.append("kyiv.digital: " + str(e2))
     old = {}
     if os.path.exists(OUT):
         old = json.load(open(OUT, encoding="utf-8"))
@@ -285,7 +346,7 @@ def main():
         "official_until": official_until,
         "sources": {
             "kmda": SRC_TEXT[portal],
-            "kd": "Журнал повітряних тривог міського сервісу «Київ Цифровий» (kyiv.digital)",
+            "kd": KD_TEXT[kd_src],
             "kmva": "Офіційний Telegram-канал Київської міської військової адміністрації (t.me/VA_Kyiv) — рівень загрози",
         },
         "notes": notes,
