@@ -1,11 +1,9 @@
 {
  "day": "2026-11-26",
- "ok": false,
- "warnings": [
-  "Набір даних КМДА на data.gov.ua недоступний — використано збережену копію."
- ],
+ "ok": true,
+ "warnings": [],
  "sources_ok": {
-  "kmda": false,
+  "kmda": true,
   "kd": true,
   "kmva": true
  },
