@@ -1,12 +1,14 @@
 {
- "day": "2026-11-26",
- "ok": true,
- "warnings": [],
+ "day": "2026-11-27",
+ "ok": false,
+ "warnings": [
+  "КМДА не оновлювала набір даних 11 днів (останній запис 2026-11-16)."
+ ],
  "sources_ok": {
   "kmda": true,
   "kd": true,
   "kmva": true
  },
  "official_until": "2026-11-16T07:33",
- "last_alert": "2026-11-26T16:20"
+ "last_alert": "2026-11-27T00:13"
 }
