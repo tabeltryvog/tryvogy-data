@@ -1,7 +1,8 @@
 """Оновлює data/alerts.json: тривоги м. Київ з офіційних джерел КМДА.
 
-1. Відкритий набір КМДА «Статистика повітряних тривог на території Києва» (data.gov.ua, CC BY 4.0):
-   час початку й відбою + рівень загрози. Оновлюється щопонеділка.
+1. Відкритий набір КМДА «Статистика повітряних тривог на території Києва»: час початку й відбою + рівень
+   загрози. Оновлюється щопонеділка. Беремо з двох порталів — data.gov.ua і Портал даних Києва
+   (data.kyivcity.gov.ua), — звідки свіжіший: коли data.gov.ua не працює, дані йдуть з міського порталу.
 2. Журнал тривог міського сервісу «Київ Цифровий» (kyiv.digital): час початку й відбою, без рівня.
    Ним доповнюємо дні після останнього оновлення набору КМДА.
 3. Офіційний Telegram-канал КМВА (t.me/VA_Kyiv): повідомлення «Червоний/Жовтий рівень небезпеки».
@@ -15,6 +16,14 @@ import datetime as dt, json, os, re, sys, urllib.request
 DATASET_ID = "48330a76-8539-4079-8d83-42fa9ba6537c"
 JSON_URL = ("https://data.gov.ua/dataset/83eda433-b4d9-47ac-89a0-5868dd4d5ce6/resource/"
             "08559e6a-863f-4d9b-86c1-d23e8b8b4630/download/airalerts.json")
+# Той самий набір (розпорядник — Департамент муніципальної безпеки) на Порталі даних Києва.
+# Там його оновлюють, навіть коли data.gov.ua не працює (так було 19–26.11.2026).
+KC_URL = ("https://data.kyivcity.gov.ua/dataset/bb0f27d3-00e2-414a-9d6e-a8b6633f8a2a/resource/"
+          "5e4fb8a8-f0c8-4a12-885f-192d1f0dba75/download/airalerts.json")
+SRC_TEXT = {
+    "dg": "КМДА, набір даних «Статистика повітряних тривог на території Києва», data.gov.ua, CC BY 4.0",
+    "kc": "КМДА (Департамент муніципальної безпеки), набір даних «Статистика повітряних тривог у місті Києві», Портал даних Києва (data.kyivcity.gov.ua)",
+}
 KD_URL = "https://kyiv.digital/storage/air-alert/stats.html"
 KMVA_URL = "https://t.me/s/VA_Kyiv"
 SINCE = "2026-09-01"
@@ -37,25 +46,8 @@ def get(url, timeout=60):
         return r.read()
 
 
-def official():
-    """Набір КМДА. Повертає список (start, end, level) у місцевому часі."""
-    urls = [JSON_URL]
-    try:
-        meta = json.loads(get("https://data.gov.ua/api/3/action/package_show?id=" + DATASET_ID))
-        for res in meta["result"]["resources"]:
-            if res.get("format", "").upper() == "JSON" and res.get("url"):
-                urls.insert(0, res["url"])
-    except Exception as e:
-        print("package_show недоступний:", e)
-    last_err = None
-    for u in urls:
-        try:
-            data = json.loads(get(u).decode("utf-8-sig"))
-            break
-        except Exception as e:
-            last_err = e
-    else:
-        raise RuntimeError("набір КМДА недоступний: %s" % last_err)
+def parse_official(data):
+    """Записи набору КМДА → список [start, end, level] у місцевому часі."""
     if isinstance(data, dict):
         data = next(v for v in data.values() if isinstance(v, list))
     out = []
@@ -70,6 +62,43 @@ def official():
         lv = "r" if "Черв" in lv else ("y" if "Жовт" in lv else "")
         out.append([s, e, lv])
     return out
+
+
+def from_data_gov_ua():
+    urls = [JSON_URL]
+    try:
+        meta = json.loads(get("https://data.gov.ua/api/3/action/package_show?id=" + DATASET_ID))
+        for res in meta["result"]["resources"]:
+            if res.get("format", "").upper() == "JSON" and res.get("url"):
+                urls.insert(0, res["url"])
+    except Exception as e:
+        print("package_show недоступний:", e)
+    last_err = None
+    for u in urls:
+        try:
+            return parse_official(json.loads(get(u).decode("utf-8-sig")))
+        except Exception as e:
+            last_err = e
+    raise RuntimeError("data.gov.ua: %s" % last_err)
+
+
+def official():
+    """Набір КМДА з двох порталів; береться свіжіший. Повертає (записи, 'dg' | 'kc', помилки)."""
+    got, errs = {}, []
+    for key, fn in (("dg", from_data_gov_ua), ("kc", lambda: parse_official(json.loads(get(KC_URL).decode("utf-8-sig"))))):
+        try:
+            rows = fn()
+            if rows:
+                got[key] = rows
+        except Exception as e:
+            errs.append(("data.gov.ua" if key == "dg" else "Портал даних Києва") + ": " + str(e)[:150])
+    if not got:
+        raise RuntimeError("набір КМДА недоступний на обох порталах (" + "; ".join(errs) + ")")
+    last = lambda rows: max((a[1] or a[0]) for a in rows)
+    key = max(got, key=lambda k: (last(got[k]), k == "dg"))      # свіжіший; за рівності — data.gov.ua
+    print("Набір КМДА: беру з", "data.gov.ua" if key == "dg" else "Порталу даних Києва", "— останній запис", last(got[key]),
+          "| інший портал:", {k: last(v) for k, v in got.items() if k != key} or errs)
+    return got[key], key, errs
 
 
 def kyiv_digital():
@@ -180,11 +209,12 @@ HEALTH = os.path.join(os.path.dirname(__file__), "..", "data", "health.json")
 def main():
     off, kd, notes, warn = [], [], [], []
     src_ok = {"kmda": True, "kd": True, "kmva": True}
+    portal = "dg"
     try:
-        off = official()
+        off, portal, _errs = official()
     except Exception as e:
         src_ok["kmda"] = False
-        notes.append("КМДА data.gov.ua: " + str(e))
+        notes.append("КМДА: " + str(e))
     try:
         kd = kyiv_digital()
     except Exception as e:
@@ -254,7 +284,7 @@ def main():
         "updated": now.strftime("%Y-%m-%dT%H:%M"),
         "official_until": official_until,
         "sources": {
-            "kmda": "КМДА, набір даних «Статистика повітряних тривог на території Києва», data.gov.ua, CC BY 4.0",
+            "kmda": SRC_TEXT[portal],
             "kd": "Журнал повітряних тривог міського сервісу «Київ Цифровий» (kyiv.digital)",
             "kmva": "Офіційний Telegram-канал Київської міської військової адміністрації (t.me/VA_Kyiv) — рівень загрози",
         },
